@@ -1,0 +1,75 @@
+# Default output is raw PNG bytes to stdout.
+exec mkimg 100 50 ff0000
+stdout 'PNG'
+! stdout 'iVBOR'
+! stderr .
+
+# -b outputs base64 to stdout.
+exec mkimg -b 100 50 ff0000
+stdout 'iVBOR'
+! stderr .
+
+# --base64 is an alias for -b.
+exec mkimg --base64 100 50 ff0000
+stdout 'iVBOR'
+! stderr .
+
+# -f jpeg outputs a JPEG to stdout.
+exec mkimg -f jpeg 100 50 ff0000
+! stderr .
+
+# -f jpg is an alias for jpeg.
+exec mkimg -f jpg 100 50 ff0000
+! stderr .
+
+# -f jpeg with -b produces the expected base64 output.
+exec mkimg -f jpeg -b 1 1 ff0000
+stdout '^/9j/2wCEAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDIBCQkJDAsMGA0NGDIhHCEyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMv/AABEIAAEAAQMBIgACEQEDEQH/xAGiAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgsQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5\+gEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoLEQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4\+Tl5ufo6ery8/T19vf4\+fr/2gAMAwEAAhEDEQA/AOLooor5k/cT/9k=$'
+! stderr .
+
+# -f gif outputs a GIF to stdout.
+exec mkimg -f gif 100 50 ff0000
+stdout 'GIF'
+! stderr .
+
+# -f gif with -b produces the expected base64 output.
+exec mkimg -f gif -b 1 1 ff0000
+stdout '^R0lGODlhAQABAAAAACwAAAAAAQABAID/AAAAAAACAkQBADs=$'
+! stderr .
+
+# -f is case-insensitive.
+exec mkimg -f PNG 100 50 ff0000
+stdout 'PNG'
+! stderr .
+
+# --format is an alias for -f.
+exec mkimg --format jpeg -b 1 1 ff0000
+stdout '^/9j/'
+! stderr .
+
+# --output is an alias for -o.
+exec mkimg --output out.png 100 50 ff0000
+! stdout .
+! stderr .
+exists out.png
+
+# -o writes raw bytes to a file; nothing to stdout.
+exec mkimg -o out.png 100 50 ff0000
+! stdout .
+! stderr .
+exists out.png
+
+# -b -o writes base64 to a file; nothing to stdout.
+exec mkimg -b -o out.b64 100 50 ff0000
+! stdout .
+! stderr .
+exists out.b64
+
+# Unknown format exits non-zero with an error message.
+! exec mkimg -f bmp 100 50 ff0000
+stderr 'unknown format'
+
+# Missing positional args with -f exits non-zero.
+! exec mkimg -f png 100 50
+stderr 'Usage:'
+stderr '\-h'

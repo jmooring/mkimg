@@ -1,0 +1,22 @@
+# -h prints help to stdout and exits zero.
+exec mkimg -h
+stdout 'Usage:'
+stdout 'width'
+stdout 'height'
+stdout 'color'
+stdout 'quoted'
+stdout 'Examples:'
+stdout 'Flags:'
+stdout '\-v'
+stdout '\-f'
+stdout '\-b'
+stdout '\-o'
+stdout 'Notes:'
+stdout 'alpha'
+stdout '10000'
+! stderr .
+
+# --help prints help to stdout and exits zero.
+exec mkimg --help
+stdout 'Usage:'
+! stderr .

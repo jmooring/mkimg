@@ -1,0 +1,4 @@
+# Missing arguments prints usage to stderr and exits non-zero.
+! exec mkimg 100 50
+stderr 'Usage:'
+stderr '\-h'

@@ -1,0 +1,11 @@
+# Non-integer width exits non-zero with an error message.
+! exec mkimg abc 50 red
+stderr 'width must be an integer between 1 and 10000'
+
+# Negative width exits non-zero with an error message.
+! exec mkimg -- -1 50 red
+stderr 'width must be an integer between 1 and 10000'
+
+# Width exceeding the maximum exits non-zero with an error message.
+! exec mkimg 10001 50 red
+stderr 'width must be an integer between 1 and 10000'

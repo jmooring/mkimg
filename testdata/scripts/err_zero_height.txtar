@@ -1,0 +1,11 @@
+# Zero height exits non-zero with an error message.
+! exec mkimg 100 0 red
+stderr 'height must be an integer between 1 and 10000'
+
+# Negative height exits non-zero with an error message.
+! exec mkimg -- 100 -1 red
+stderr 'height must be an integer between 1 and 10000'
+
+# Height exceeding the maximum exits non-zero with an error message.
+! exec mkimg 100 10001 red
+stderr 'height must be an integer between 1 and 10000'

@@ -1,0 +1,3 @@
+# Invalid hex color exits non-zero with an error message.
+! exec mkimg 100 50 gg0000
+stderr 'invalid color'

@@ -1,0 +1,4 @@
+# Valid hex color (8-digit with alpha) produces the expected base64 output.
+exec mkimg -b 100 50 ff000080
+stdout '^iVBORw0KGgoAAAANSUhEUgAAAGQAAAAyCAYAAACqNX6\+AAAAlklEQVR4nOzRwQkAIRDAwOW4wm1c8G0F5jFTQSD/nllDxvc6gJshMYbEGBJjSIwhMYbEGBJjSIwhMYbEGBJjSIwhMYbEGBJjSIwhMYbEGBJjSIwhMYbEGBJjSIwhMYbEGBJjSIwhMYbEGBJjSIwhMYbEGBJjSIwhMYbEGBJjSIwhMYbEGBJjSIwhMYbEGBJjSMwJAAD//xokAeSXeUyRAAAAAElFTkSuQmCC$'
+! stderr .

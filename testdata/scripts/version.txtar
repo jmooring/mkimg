@@ -1,0 +1,9 @@
+# -v prints a version string to stdout and exits zero.
+exec mkimg -v
+stdout '\S+'
+! stderr .
+
+# --version prints a version string to stdout and exits zero.
+exec mkimg --version
+stdout '\S+'
+! stderr .

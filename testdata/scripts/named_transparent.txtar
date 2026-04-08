@@ -1,0 +1,4 @@
+# transparent is a valid named color (fully transparent black).
+exec mkimg -b 10 10 transparent
+stdout '^iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs\+9AAAAFUlEQVR4nGJiIBKMKqSzQkAAAAD//xM4ABUt718PAAAAAElFTkSuQmCC$'
+! stderr .

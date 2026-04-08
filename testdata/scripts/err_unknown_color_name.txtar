@@ -1,0 +1,3 @@
+# Unrecognised color name exits non-zero with an error message.
+! exec mkimg 100 50 notacolor
+stderr 'invalid color'

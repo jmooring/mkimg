@@ -1,0 +1,4 @@
+# 3-digit shorthand hex (#rgb → #rrggbb).
+exec mkimg -b 1 1 f00
+stdout '^iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAEElEQVR4nGL6z8AACAAA//8DCQECWLbVUAAAAABJRU5ErkJggg==$'
+! stderr .

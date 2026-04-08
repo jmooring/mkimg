@@ -1,0 +1,6 @@
+*.gif
+*.jpg
+*.png
+/assets/mkimg.gif
+coverage.out
+coverage.txt
