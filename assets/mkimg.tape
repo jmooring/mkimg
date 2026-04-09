@@ -39,67 +39,73 @@ Show
 # Examples
 # -----------------------------------------------------------------------------
 
-Type "mkimg -f jpeg -o blue.jpg 6 7 blue"
+Type "mkimg -o blue.jpg 6 7 blue"
 Sleep 1
 Enter
 Wait+Line@10s /\$/ # wait for prompt to appear
 Sleep 2
 
-Type "mkimg -f jpeg -o blue.jpg 6 7 '#0000ff'"
+Type "mkimg -o blue.jpg 6 7 '#0000ff'"
 Sleep 1
 Enter
 Wait+Line@10s /\$/ # wait for prompt to appear
 Sleep 2
 
-Type "mkimg -f jpeg -o blue.jpg 6 7 '#00f'"
+Type "mkimg -o blue.jpg 6 7 '#00f'"
 Sleep 1
 Enter
 Wait+Line@10s /\$/ # wait for prompt to appear
 Sleep 2
 
-Type "mkimg -f jpeg -o blue.jpg 6 7 0000ff"
+Type "mkimg -o blue.jpg 6 7 0000ff"
 Sleep 1
 Enter
 Wait+Line@10s /\$/ # wait for prompt to appear
 Sleep 2
 
-Type "mkimg -f jpeg -o blue.jpg 6 7 00f"
+Type "mkimg -o blue.jpg 6 7 00f"
 Sleep 1
 Enter
 Wait+Line@10s /\$/ # wait for prompt to appear
 Sleep 2
 
-Type "mkimg -f png -o semi-transparent-red.png 42 42 '#ff000088'"
+Type "mkimg -o semi-transparent-red.png 42 42 '#ff000088'"
 Sleep 1
 Enter
 Wait+Line@10s /\$/ # wait for prompt to appear
 Sleep 2
 
-Type "mkimg -f png -o semi-transparent-red.png 42 42 '#f008'"
+Type "mkimg -o semi-transparent-red.png 42 42 '#f008'"
 Sleep 1
 Enter
 Wait+Line@10s /\$/ # wait for prompt to appear
 Sleep 2
 
-Type "mkimg -f png -o semi-transparent-red.png 42 42 ff000088"
+Type "mkimg -o semi-transparent-red.png 42 42 ff000088"
 Sleep 1
 Enter
 Wait+Line@10s /\$/ # wait for prompt to appear
 Sleep 2
 
-Type "mkimg -f png -o semi-transparent-red.png 42 42 f008"
+Type "mkimg -o semi-transparent-red.png 42 42 f008"
 Sleep 1
 Enter
 Wait+Line@10s /\$/ # wait for prompt to appear
 Sleep 2
 
-Type "mkimg -f png -o pixel.png 1 1 transparent"
+Type "mkimg -o pixel.png 1 1 transparent"
 Sleep 1
 Enter
 Wait+Line@10s /\$/ # wait for prompt to appear
 Sleep 2
 
 Type "mkimg -f png -b 1 1 transparent"
+Sleep 1
+Enter
+Wait+Line@10s /\$/ # wait for prompt to appear
+Sleep 2
+
+Type "mkimg -b 1 1 transparent"
 Sleep 1
 Enter
 Wait+Line@10s /\$/ # wait for prompt to appear
