@@ -1,0 +1,25 @@
+# -f webp outputs a WebP to stdout.
+exec mkimg -f webp 100 50 ff0000
+stdout 'WEBP'
+! stderr .
+
+# -f webp with -b produces the expected base64 output.
+exec mkimg -f webp -b 1 1 ff0000
+stdout '^UklGRhwAAABXRUJQVlA4TBAAAAAvAAAAAI1SRPQ/JNH/iAAA$'
+! stderr .
+
+# -f webp is case-insensitive.
+exec mkimg -f WEBP 100 50 ff0000
+stdout 'WEBP'
+! stderr .
+
+# --format webp is an alias for -f webp.
+exec mkimg --format webp -b 1 1 ff0000
+stdout '^UklGRhwAAABXRUJQVlA4TBAAAAAvAAAAAI1SRPQ/JNH/iAAA$'
+! stderr .
+
+# -o writes raw bytes to a file; nothing to stdout.
+exec mkimg -f webp -o out.webp 100 50 ff0000
+! stdout .
+! stderr .
+exists out.webp
