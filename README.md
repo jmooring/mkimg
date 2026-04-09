@@ -27,8 +27,8 @@ Generates a uniform-color image and outputs it as raw bytes
 or a base64 string to either stdout or a file.
 
 Arguments:
-  width   image width in pixels (1–10000)
-  height  image height in pixels (1–10000)
+  width   image width in pixels [1, 10000]
+  height  image height in pixels [1, 10000]
   color   hex value or CSS named color (see examples below)
 
 Color formats:
@@ -45,9 +45,12 @@ Examples:
   mkimg -o semi-transparent-red.png 6 7 ff000088
 
   # Generate a 42x42 blue JPEG using shorthand hex
-  mkimg -f jpeg -o blue.jpg 42 42 00f
+  mkimg -o blue.jpg 42 42 00f
 
-  # Output a 1x1 transparent PNG as base64 to stdout
+  # Output a 1x1 transparent WebP as base64 to stdout
+  mkimg -f webp -b 1 1 transparent
+
+  # Output a 1x1 transparent PNG as base64 to stdout (default format)
   mkimg -b 1 1 transparent
 
   # Redirect raw bytes to a file or pipe to another tool
@@ -56,15 +59,18 @@ Examples:
 Flags:
   -h, --help             show this help message
   -v, --version          print version and exit
-  -f, --format string    output format: png, jpeg (or jpg), gif (default "png")
-  -o, --output string    write output to file (default: stdout)
+  -f, --format string    gif, jpeg, png (default), webp
+  -o, --output string    write output to file
   -b, --base64           encode output as base64
 
 Notes:
+  - If -f is omitted, the format is inferred from the -o file extension
+    (.gif, .jpeg, .jpg, .png, .webp); defaults to PNG when writing to
+    stdout; an unrecognized extension is an error.
   - JPEG and GIF do not support an alpha channel; the alpha
     component of the specified color is ignored and all pixels
     are fully opaque.
-  - Width and height are capped at 10000 pixels per side to
-    prevent excessive memory use.
+  - WebP output is lossless and supports an alpha channel.
+  - Format names are case-insensitive; PNG and png are equivalent.
   - Hex digits are case-insensitive; FF0000 and ff0000 are equivalent.
 ```

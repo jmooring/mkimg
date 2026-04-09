@@ -28,9 +28,12 @@ import (
 	"image/png"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strconv"
 	"strings"
+
+	"github.com/HugoSmits86/nativewebp"
 )
 
 func version() string {
@@ -56,8 +59,8 @@ func main() {
 	fs.BoolVar(&showHelp, "help", false, "show this help message")
 	fs.BoolVar(&showVersion, "v", false, "print version and exit")
 	fs.BoolVar(&showVersion, "version", false, "print version and exit")
-	fs.StringVar(&format, "f", "png", "output format (png, jpeg/jpg, gif)")
-	fs.StringVar(&format, "format", "png", "output format (png, jpeg/jpg, gif)")
+	fs.StringVar(&format, "f", "", "gif, jpeg, png (default), webp")
+	fs.StringVar(&format, "format", "", "gif, jpeg, png (default), webp")
 	fs.StringVar(&outputFile, "o", "", "write output to file")
 	fs.StringVar(&outputFile, "output", "", "write output to file")
 	fs.BoolVar(&asBase64, "b", false, "encode output as base64")
@@ -76,8 +79,8 @@ func main() {
 		fmt.Println("or a base64 string to either stdout or a file.")
 		fmt.Println()
 		fmt.Println("Arguments:")
-		fmt.Println("  width   image width in pixels (1–10000)")
-		fmt.Println("  height  image height in pixels (1–10000)")
+		fmt.Println("  width   image width in pixels [1, 10000]")
+		fmt.Println("  height  image height in pixels [1, 10000]")
 		fmt.Println("  color   hex value or CSS named color (see examples below)")
 		fmt.Println()
 		fmt.Println("Color formats:")
@@ -93,8 +96,10 @@ func main() {
 		fmt.Println("  # Create a 6x7 semi-transparent red PNG")
 		fmt.Printf("  %s -o semi-transparent-red.png 6 7 ff000088\n\n", os.Args[0])
 		fmt.Println("  # Generate a 42x42 blue JPEG using shorthand hex")
-		fmt.Printf("  %s -f jpeg -o blue.jpg 42 42 00f\n\n", os.Args[0])
-		fmt.Println("  # Output a 1x1 transparent PNG as base64 to stdout")
+		fmt.Printf("  %s -o blue.jpg 42 42 00f\n\n", os.Args[0])
+		fmt.Println("  # Output a 1x1 transparent WebP as base64 to stdout")
+		fmt.Printf("  %s -f webp -b 1 1 transparent\n\n", os.Args[0])
+		fmt.Println("  # Output a 1x1 transparent PNG as base64 to stdout (default format)")
 		fmt.Printf("  %s -b 1 1 transparent\n\n", os.Args[0])
 		fmt.Println("  # Redirect raw bytes to a file or pipe to another tool")
 		fmt.Printf("  %s 100 100 red > red.png\n", os.Args[0])
@@ -102,16 +107,19 @@ func main() {
 		fmt.Println("Flags:")
 		fmt.Println("  -h, --help             show this help message")
 		fmt.Println("  -v, --version          print version and exit")
-		fmt.Println("  -f, --format string    output format: png, jpeg (or jpg), gif (default \"png\")")
-		fmt.Println("  -o, --output string    write output to file (default: stdout)")
+		fmt.Println("  -f, --format string    gif, jpeg, png (default), webp")
+		fmt.Println("  -o, --output string    write output to file")
 		fmt.Println("  -b, --base64           encode output as base64")
 		fmt.Println()
 		fmt.Println("Notes:")
+		fmt.Println("  - If -f is omitted, the format is inferred from the -o file extension")
+		fmt.Println("    (.gif, .jpeg, .jpg, .png, .webp); defaults to PNG when writing to")
+		fmt.Println("    stdout; an unrecognized extension is an error.")
 		fmt.Println("  - JPEG and GIF do not support an alpha channel; the alpha")
 		fmt.Println("    component of the specified color is ignored and all pixels")
 		fmt.Println("    are fully opaque.")
-		fmt.Println("  - Width and height are capped at 10000 pixels per side to")
-		fmt.Println("    prevent excessive memory use.")
+		fmt.Println("  - WebP output is lossless and supports an alpha channel.")
+		fmt.Println("  - Format names are case-insensitive; PNG and png are equivalent.")
 		fmt.Println("  - Hex digits are case-insensitive; FF0000 and ff0000 are equivalent.")
 		os.Exit(0)
 	}
@@ -149,12 +157,38 @@ func main() {
 		os.Exit(1)
 	}
 
+	if format == "" {
+		if outputFile != "" {
+			ext := filepath.Ext(outputFile)
+			switch strings.ToLower(ext) {
+			case ".gif":
+				format = "gif"
+			case ".jpeg", ".jpg":
+				format = "jpeg"
+			case ".png":
+				format = "png"
+			case ".webp":
+				format = "webp"
+			default:
+				if ext == "" {
+					fmt.Fprintf(os.Stderr, "Error: cannot infer format from %q: no file extension; use -f to specify the format or append one of .gif, .jpeg, .jpg, .png, .webp\n", outputFile)
+				} else {
+					fmt.Fprintf(os.Stderr, "Error: cannot infer format from extension %q: use -f to specify the format or change the extension to one of .gif, .jpeg, .jpg, .png, or .webp\n", ext)
+				}
+				fmt.Fprintf(os.Stderr, "Run '%s -h' for help.\n", os.Args[0])
+				os.Exit(1)
+			}
+		} else {
+			format = "png"
+		}
+	}
+
 	format = strings.ToLower(format)
 	switch format {
-	case "png", "jpeg", "jpg", "gif":
+	case "gif", "jpeg", "png", "webp":
 		// valid
 	default:
-		fmt.Fprintf(os.Stderr, "Error: unknown format %q: must be one of png, jpeg, gif\n", format)
+		fmt.Fprintf(os.Stderr, "Error: unknown format %q: must be one of gif, jpeg, png, webp\n", format)
 		fmt.Fprintf(os.Stderr, "Run '%s -h' for help.\n", os.Args[0])
 		os.Exit(1)
 	}
@@ -162,15 +196,22 @@ func main() {
 	bounds := image.Rect(0, 0, width, height)
 	var buf bytes.Buffer
 	switch format {
-	case "png", "jpeg", "jpg":
+	case "jpeg", "png", "webp":
 		img := image.NewRGBA(bounds)
 		pix := img.Pix
-		for i := 0; i < len(pix); i += 4 {
-			pix[i], pix[i+1], pix[i+2], pix[i+3] = c.R, c.G, c.B, c.A
+		a := c.A
+		if format == "jpeg" {
+			a = 0xFF
 		}
-		if format == "png" {
+		for i := 0; i < len(pix); i += 4 {
+			pix[i], pix[i+1], pix[i+2], pix[i+3] = c.R, c.G, c.B, a
+		}
+		switch format {
+		case "png":
 			err = png.Encode(&buf, img)
-		} else {
+		case "webp":
+			err = nativewebp.Encode(&buf, img, nil)
+		default:
 			err = jpeg.Encode(&buf, img, nil)
 		}
 	case "gif":

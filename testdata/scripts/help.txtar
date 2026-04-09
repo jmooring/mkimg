@@ -13,6 +13,7 @@ stdout '\-b'
 stdout '\-o'
 stdout 'Notes:'
 stdout 'alpha'
+stdout 'webp'
 stdout '10000'
 ! stderr .
 

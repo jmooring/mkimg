@@ -1,0 +1,48 @@
+# Format is inferred from .webp extension.
+exec mkimg -o out.webp 100 50 ff0000
+! stderr .
+grep 'WEBP' out.webp
+
+# Format is inferred from .png extension.
+exec mkimg -o out.png 100 50 ff0000
+! stderr .
+grep 'PNG' out.png
+
+# Format is inferred from .gif extension.
+exec mkimg -o out.gif 100 50 ff0000
+! stderr .
+grep 'GIF' out.gif
+
+# Format is inferred from .jpeg extension.
+exec mkimg -o out.jpeg 100 50 ff0000
+! stderr .
+exists out.jpeg
+
+# Format is inferred from .jpg extension.
+exec mkimg -o out.jpg 100 50 ff0000
+! stderr .
+exists out.jpg
+
+# Unrecognized extension exits non-zero with an error message.
+! exec mkimg -o out.xyz 100 50 ff0000
+stderr 'cannot infer format'
+stderr '\-f'
+
+# No extension exits non-zero with an error message.
+! exec mkimg -o out 100 50 ff0000
+stderr 'cannot infer format'
+stderr '\-f'
+
+# Explicit -f overrides the inferred extension.
+exec mkimg -f png -o out.webp 100 50 ff0000
+! stderr .
+grep 'PNG' out.webp
+
+# Extension inference is case-insensitive.
+exec mkimg -o out.PNG 100 50 ff0000
+! stderr .
+grep 'PNG' out.PNG
+
+exec mkimg -o out.WEBP 100 50 ff0000
+! stderr .
+grep 'WEBP' out.WEBP
