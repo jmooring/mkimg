@@ -3,7 +3,7 @@ module github.com/jmooring/mkimg
 go 1.26.0
 
 require (
-	github.com/HugoSmits86/nativewebp v1.2.1
+	github.com/HugoSmits86/nativewebp v1.3.0
 	github.com/rogpeppe/go-internal v1.14.1
 )
 
