@@ -4,7 +4,7 @@ go 1.26.3
 
 require (
 	github.com/HugoSmits86/nativewebp v1.3.0
-	github.com/rogpeppe/go-internal v1.15.0
+	github.com/rogpeppe/go-internal v1.16.0
 )
 
 require (
