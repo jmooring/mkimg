@@ -24,15 +24,22 @@ import (
 	"image"
 	"image/color"
 	"io"
+	"maps"
+	"os"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/rogpeppe/go-internal/testscript"
+	"golang.org/x/image/colornames"
 )
 
 func TestScript(t *testing.T) {
 	testscript.Run(t, testscript.Params{
-		Dir: "testdata/scripts",
+		Dir:                 "testdata/scripts",
+		RequireExplicitExec: true,
+		RequireUniqueNames:  true,
 		Cmds: map[string]func(ts *testscript.TestScript, neg bool, args []string){
 			"img": cmdImg,
 		},
@@ -93,13 +100,13 @@ func checkImg(data string, isBase64 bool, tol int, want []string) error {
 	if isBase64 {
 		raw, err = base64.StdEncoding.DecodeString(string(bytes.TrimSpace(raw)))
 		if err != nil {
-			return fmt.Errorf("decoding base64: %v", err)
+			return fmt.Errorf("decoding base64: %w", err)
 		}
 	}
 
 	img, format, err := image.Decode(bytes.NewReader(raw))
 	if err != nil {
-		return fmt.Errorf("decoding image: %v", err)
+		return fmt.Errorf("decoding image: %w", err)
 	}
 	if format != wantFormat {
 		return fmt.Errorf("format: got %s, want %s", format, wantFormat)
@@ -108,9 +115,9 @@ func checkImg(data string, isBase64 bool, tol int, want []string) error {
 	if b.Dx() != wantW || b.Dy() != wantH {
 		return fmt.Errorf("dimensions: got %dx%d, want %dx%d", b.Dx(), b.Dy(), wantW, wantH)
 	}
-	for y := b.Min.Y; y < b.Max.Y; y++ {
-		for x := b.Min.X; x < b.Max.X; x++ {
-			got := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+	for y := range b.Dy() {
+		for x := range b.Dx() {
+			got := color.NRGBAModel.Convert(img.At(b.Min.X+x, b.Min.Y+y)).(color.NRGBA)
 			if !colorWithin(got, wantC, tol) {
 				return fmt.Errorf("pixel (%d,%d): got %02x%02x%02x%02x, want %02x%02x%02x%02x (tolerance %d)",
 					x, y, got.R, got.G, got.B, got.A, wantC.R, wantC.G, wantC.B, wantC.A, tol)
@@ -195,6 +202,7 @@ func TestParseColor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			got, err := parseColor(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("parseColor(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
@@ -203,5 +211,85 @@ func TestParseColor(t *testing.T) {
 				t.Errorf("parseColor(%q) = %+v, want %+v", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+// FuzzParseColor verifies that parseColor never panics and that every color
+// it accepts round-trips through its 8-digit hex form.
+func FuzzParseColor(f *testing.F) {
+	for _, s := range []string{
+		"ff0000", "#3b82f6", "ff000080", "f00", "#f008", "0000",
+		"red", "Tomato", "transparent", "", "#", "gg0000", "12345", "#ééé",
+	} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		c, err := parseColor(s)
+		if err != nil {
+			return
+		}
+		h := fmt.Sprintf("%02x%02x%02x%02x", c.R, c.G, c.B, c.A)
+		got, err := parseColor(h)
+		if err != nil {
+			t.Fatalf("parseColor(%q) = %+v, but parseColor(%q) failed: %v", s, c, h, err)
+		}
+		if got != c {
+			t.Fatalf("parseColor(%q) = %+v, but parseColor(%q) = %+v", s, c, h, got)
+		}
+	})
+}
+
+// TestReadmeUsage verifies that the usage block in README.md matches the
+// output of "mkimg -h".
+func TestReadmeUsage(t *testing.T) {
+	readme, err := os.ReadFile("README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Git may check out README.md with CRLF line endings on Windows.
+	text := strings.ReplaceAll(string(readme), "\r\n", "\n")
+	const start, end = "## Usage\n\n```text\n", "```\n"
+	_, block, ok := strings.Cut(text, start)
+	if !ok {
+		t.Fatalf("README.md: %q not found", start)
+	}
+	block, _, ok = strings.Cut(block, end)
+	if !ok {
+		t.Fatalf("README.md: closing %q for usage block not found", end)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := run("mkimg", []string{"-h"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("mkimg -h: exit code %d, stderr: %s", code, stderr.String())
+	}
+	if got := stdout.String(); got != block {
+		t.Errorf("README.md usage block is out of date.\n--- README.md\n%s\n--- mkimg -h\n%s", block, got)
+	}
+}
+
+// TestNamedColors verifies the named color table against
+// golang.org/x/image/colornames, which implements the SVG 1.1 color keywords.
+// CSS Color Level 4 adds "rebeccapurple" and "transparent".
+func TestNamedColors(t *testing.T) {
+	cssOnly := map[string]color.RGBA{
+		"rebeccapurple": {R: 0x66, G: 0x33, B: 0x99, A: 0xFF},
+		"transparent":   {R: 0x00, G: 0x00, B: 0x00, A: 0x00},
+	}
+	want := maps.Clone(colornames.Map)
+	maps.Copy(want, cssOnly)
+
+	for _, name := range slices.Sorted(maps.Keys(want)) {
+		got, ok := namedColors[name]
+		switch {
+		case !ok:
+			t.Errorf("namedColors is missing %q", name)
+		case got != want[name]:
+			t.Errorf("namedColors[%q] = %+v, want %+v", name, got, want[name])
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(namedColors)) {
+		if _, ok := want[name]; !ok {
+			t.Errorf("namedColors has unexpected entry %q", name)
+		}
 	}
 }
