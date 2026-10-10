@@ -12,7 +12,7 @@ Use `mkimg` to generate a uniform-color image and output it as raw bytes or a ba
 
 ## Installation
 
-Installation requires Go 1.26.0 or later.
+Installation requires Go 1.27.2 or later.
 
 ```sh
 go install github.com/jmooring/mkimg@latest
