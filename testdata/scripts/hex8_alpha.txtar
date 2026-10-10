@@ -1,0 +1,18 @@
+# Regression: 8-digit hex colors with partial alpha must be written with
+# straight (non-premultiplied) alpha. Previously, color channels greater than
+# the alpha value were corrupted (e.g., 0000ff7f was written as 0000027f).
+
+# 0000ff7f: blue channel exceeds alpha.
+exec mkimg -b 1 1 0000ff7f
+stdout '^iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAEklEQVR4nAAFAPr/AgAA/38DAAKMAYEtG\+01AAAAAElFTkSuQmCC$'
+! stderr .
+
+# 0000ff80: blue channel exceeds alpha.
+exec mkimg -b 1 1 0000ff80
+stdout '^iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAEklEQVR4nAAFAPr/AgAA/4ADAAKNAYIn5pyIAAAAAElFTkSuQmCC$'
+! stderr .
+
+# ff000080: red channel exceeds alpha.
+exec mkimg -b 1 1 ff000080
+stdout '^iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAEklEQVR4nAAFAPr/Av8AAIADAASLAYLBDG4UAAAAAElFTkSuQmCC$'
+! stderr .
