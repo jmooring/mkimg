@@ -1,4 +1,4 @@
 # CSS named color (lowercase).
 exec mkimg -b 100 50 red
-stdout '^iVBORw0KGgoAAAANSUhEUgAAAGQAAAAyCAIAAAAlV\+npAAAAYklEQVR4nOzQsREAAATAQOfsvzKVmgE\+VeqvDn3LHViwYMGCBQsWLFiwYMGCBQsWLFiwYMGCBQsWLFiwYMGCBQsWLFiwYMGCBQsWLFiwYMGCBQsWLFiwYMGCBQsWLFg31gwA\+O0BZvfp6s0AAAAASUVORK5CYII=$'
+img -b stdout png 100 50 ff0000ff
 ! stderr .

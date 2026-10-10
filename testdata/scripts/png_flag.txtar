@@ -18,9 +18,9 @@ stdout 'iVBOR'
 exec mkimg -f jpeg 100 50 ff0000
 ! stderr .
 
-# -f jpeg with -b produces the expected base64 output.
+# -f jpeg with -b produces the expected image (lossy, so allow a small tolerance).
 exec mkimg -f jpeg -b 1 1 ff0000
-stdout '^/9j/2wCEAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDIBCQkJDAsMGA0NGDIhHCEyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMv/AABEIAAEAAQMBIgACEQEDEQH/xAGiAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgsQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5\+gEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoLEQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4\+Tl5ufo6ery8/T19vf4\+fr/2gAMAwEAAhEDEQA/AOLooor5k/cT/9k=$'
+img -b -tol 2 stdout jpeg 1 1 ff0000ff
 ! stderr .
 
 # -f gif outputs a GIF to stdout.
@@ -28,9 +28,9 @@ exec mkimg -f gif 100 50 ff0000
 stdout 'GIF'
 ! stderr .
 
-# -f gif with -b produces the expected base64 output.
+# -f gif with -b produces the expected image.
 exec mkimg -f gif -b 1 1 ff0000
-stdout '^R0lGODlhAQABAAAAACwAAAAAAQABAID/AAAAAAACAkQBADs=$'
+img -b stdout gif 1 1 ff0000ff
 ! stderr .
 
 # -f is case-insensitive.

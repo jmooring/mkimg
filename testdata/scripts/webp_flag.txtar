@@ -3,9 +3,9 @@ exec mkimg -f webp 100 50 ff0000
 stdout 'WEBP'
 ! stderr .
 
-# -f webp with -b produces the expected base64 output.
+# -f webp with -b produces the expected image.
 exec mkimg -f webp -b 1 1 ff0000
-stdout '^UklGRhoAAABXRUJQVlA4TA4AAAAvAAAAAA1ERP/DFf2PCA==$'
+img -b stdout webp 1 1 ff0000ff
 ! stderr .
 
 # -f webp is case-insensitive.
@@ -15,7 +15,7 @@ stdout 'WEBP'
 
 # --format webp is an alias for -f webp.
 exec mkimg --format webp -b 1 1 ff0000
-stdout '^UklGRhoAAABXRUJQVlA4TA4AAAAvAAAAAA1ERP/DFf2PCA==$'
+img -b stdout webp 1 1 ff0000ff
 ! stderr .
 
 # -o writes raw bytes to a file; nothing to stdout.

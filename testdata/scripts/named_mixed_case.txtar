@@ -1,4 +1,4 @@
 # CSS named color is case-insensitive.
 exec mkimg -b 100 50 CornflowerBlue
-stdout '^iVBORw0KGgoAAAANSUhEUgAAAGQAAAAyCAIAAAAlV\+npAAAAZ0lEQVR4nOzQMREAMAjAwF6vUmsJmXhgYgYBnynzvx95tOv2wIIFCxYsWLBgwYIFCxYsWLBgwYIFCxYsWLBgwYIFCxYsWLBgwYIFCxYsWLBgwYIFCxYsWLBgwYIFCxYsWLBgwZqxagAFBwJNFb9jigAAAABJRU5ErkJggg==$'
+img -b stdout png 100 50 6495edff
 ! stderr .
