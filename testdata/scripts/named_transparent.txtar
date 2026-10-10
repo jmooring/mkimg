@@ -1,4 +1,4 @@
 # transparent is a valid named color (fully transparent black).
 exec mkimg -b 10 10 transparent
-stdout '^iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs\+9AAAAEUlEQVR4nGJiIBKMKqSzQsAAEzgAFTl\+PE8AAAAASUVORK5CYII=$'
+img -b stdout png 10 10 00000000
 ! stderr .

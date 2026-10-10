@@ -4,15 +4,25 @@
 
 # 0000ff7f: blue channel exceeds alpha.
 exec mkimg -b 1 1 0000ff7f
-stdout '^iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAEklEQVR4nAAFAPr/AgAA/38DAAKMAYEtG\+01AAAAAElFTkSuQmCC$'
+img -b stdout png 1 1 0000ff7f
 ! stderr .
 
 # 0000ff80: blue channel exceeds alpha.
 exec mkimg -b 1 1 0000ff80
-stdout '^iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAEklEQVR4nAAFAPr/AgAA/4ADAAKNAYIn5pyIAAAAAElFTkSuQmCC$'
+img -b stdout png 1 1 0000ff80
 ! stderr .
 
 # ff000080: red channel exceeds alpha.
 exec mkimg -b 1 1 ff000080
-stdout '^iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAEklEQVR4nAAFAPr/Av8AAIADAASLAYLBDG4UAAAAAElFTkSuQmCC$'
+img -b stdout png 1 1 ff000080
+! stderr .
+
+# abcdef01: every color channel exceeds alpha.
+exec mkimg -b 1 1 abcdef01
+img -b stdout png 1 1 abcdef01
+! stderr .
+
+# WebP output also preserves straight alpha.
+exec mkimg -f webp -b 1 1 0000ff7f
+img -b stdout webp 1 1 0000ff7f
 ! stderr .

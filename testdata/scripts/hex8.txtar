@@ -1,4 +1,4 @@
-# Valid hex color (8-digit with alpha) produces the expected base64 output.
+# Valid hex color (8-digit with alpha) produces the expected image.
 exec mkimg -b 100 50 ff000080
-stdout '^iVBORw0KGgoAAAANSUhEUgAAAGQAAAAyCAYAAACqNX6\+AAAAe0lEQVR4nOzRoREAIAwEwR\+GwumcqOjYiD11fu9PXrSm0wMECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgE0gNALbGAea9ZHC1AAAAAElFTkSuQmCC$'
+img -b stdout png 100 50 ff000080
 ! stderr .

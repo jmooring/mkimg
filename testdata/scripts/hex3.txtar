@@ -1,4 +1,4 @@
 # 3-digit shorthand hex (#rgb → #rrggbb).
 exec mkimg -b 1 1 f00
-stdout '^iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAEUlEQVR4nAAEAPv/Av8AAAMAAwkBAvk/Y\+MAAAAASUVORK5CYII=$'
+img -b stdout png 1 1 ff0000ff
 ! stderr .
