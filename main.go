@@ -210,7 +210,10 @@ func main() {
 		}
 		switch format {
 		case "png":
-			err = png.Encode(&buf, img)
+			// Uniform-color images compress extremely well, so the extra
+			// encoding time for maximum compression is worth the size savings.
+			enc := png.Encoder{CompressionLevel: png.BestCompression}
+			err = enc.Encode(&buf, img)
 		case "webp":
 			err = nativewebp.Encode(&buf, img, nil)
 		default:
