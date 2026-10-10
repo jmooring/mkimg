@@ -197,7 +197,9 @@ func main() {
 	var buf bytes.Buffer
 	switch format {
 	case "jpeg", "png", "webp":
-		img := image.NewRGBA(bounds)
+		// Use NRGBA (non-premultiplied alpha) because parsed colors are
+		// straight-alpha values; image.RGBA expects premultiplied values.
+		img := image.NewNRGBA(bounds)
 		pix := img.Pix
 		a := c.A
 		if format == "jpeg" {
