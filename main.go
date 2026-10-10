@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"image"
@@ -27,14 +28,123 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/HugoSmits86/nativewebp"
 )
+
+// maxDim is the maximum image width and height in pixels.
+const maxDim = 10000
+
+// helpText is the help message. %[1]s is replaced with the program name.
+const helpText = `Usage: %[1]s [flags] <width> <height> <color>
+
+Generates a uniform-color image and outputs it as raw bytes
+or a base64 string to either stdout or a file.
+
+Arguments:
+  width   image width in pixels [1, 10000]
+  height  image height in pixels [1, 10000]
+  color   hex value or CSS named color (see examples below)
+
+Color formats:
+  ff0000        6-digit hex (RGB)
+  ff000080      8-digit hex (RGBA)
+  f00           3-digit hex (RGB), expanded to ff0000
+  f008          4-digit hex (RGBA), expanded to ff000088
+  '#ff0000'     hex with # prefix (must be quoted)
+  red           CSS named color
+  transparent   fully transparent black
+
+Examples:
+  # Create a 6x7 semi-transparent red PNG
+  %[1]s -o semi-transparent-red.png 6 7 ff000088
+
+  # Generate a 42x42 blue JPEG using shorthand hex
+  %[1]s -o blue.jpg 42 42 00f
+
+  # Output a 1x1 transparent WebP as base64 to stdout
+  %[1]s -f webp -b 1 1 transparent
+
+  # Output a 1x1 transparent PNG as base64 to stdout (default format)
+  %[1]s -b 1 1 transparent
+
+  # Redirect raw bytes to a file or pipe to another tool
+  %[1]s 100 100 red > red.png
+
+Flags:
+  -h, --help             show this help message
+  -v, --version          print version and exit
+  -f, --format string    gif, jpeg, png (default), webp
+  -o, --output string    write output to file
+  -b, --base64           encode output as base64
+
+Notes:
+  - If -f is omitted, the format is inferred from the -o file extension
+    (.gif, .jpeg, .jpg, .png, .webp); defaults to PNG when writing to
+    stdout; an unrecognized extension is an error.
+  - JPEG and GIF do not support an alpha channel; the alpha
+    component of the specified color is ignored and all pixels
+    are fully opaque.
+  - WebP output is lossless and supports an alpha channel.
+  - Format names are case-insensitive; PNG and png are equivalent.
+  - Hex digits are case-insensitive; FF0000 and ff0000 are equivalent.
+`
+
+// encoder writes a width x height image filled with c to w.
+type encoder func(w io.Writer, width, height int, c color.RGBA) error
+
+// encoders maps each supported format name to its encoder.
+var encoders = map[string]encoder{
+	"gif": func(w io.Writer, width, height int, c color.RGBA) error {
+		// GIF has no alpha channel; use a single opaque palette entry.
+		palette := color.Palette{color.RGBA{R: c.R, G: c.G, B: c.B, A: 0xFF}}
+		return gif.EncodeAll(w, &gif.GIF{
+			Image: []*image.Paletted{image.NewPaletted(image.Rect(0, 0, width, height), palette)},
+			Delay: []int{0},
+		})
+	},
+	"jpeg": func(w io.Writer, width, height int, c color.RGBA) error {
+		// JPEG has no alpha channel; ignore the alpha component.
+		c.A = 0xFF
+		return jpeg.Encode(w, fill(width, height, c), nil)
+	},
+	"png": func(w io.Writer, width, height int, c color.RGBA) error {
+		// Uniform-color images compress extremely well, so the extra
+		// encoding time for maximum compression is worth the size savings.
+		enc := png.Encoder{CompressionLevel: png.BestCompression}
+		return enc.Encode(w, fill(width, height, c))
+	},
+	"webp": func(w io.Writer, width, height int, c color.RGBA) error {
+		return nativewebp.Encode(w, fill(width, height, c), nil)
+	},
+}
+
+// extFormats maps each recognized file extension (lowercase) to a format name.
+var extFormats = map[string]string{
+	".gif":  "gif",
+	".jpeg": "jpeg",
+	".jpg":  "jpeg",
+	".png":  "png",
+	".webp": "webp",
+}
+
+var (
+	formatList = strings.Join(slices.Sorted(maps.Keys(encoders)), ", ")
+	extList    = strings.Join(slices.Sorted(maps.Keys(extFormats)), ", ")
+)
+
+// extListOr is extList with "or" before the last extension.
+var extListOr = func() string {
+	exts := slices.Sorted(maps.Keys(extFormats))
+	return strings.Join(exts[:len(exts)-1], ", ") + ", or " + exts[len(exts)-1]
+}()
 
 func version() string {
 	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {
@@ -44,7 +154,21 @@ func version() string {
 }
 
 func main() {
-	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	os.Exit(run(filepath.Base(os.Args[0]), os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// run executes the command with the given program name and arguments,
+// writing output to stdout and diagnostics to stderr. It returns the
+// process exit code.
+func run(name string, args []string, stdout, stderr io.Writer) int {
+	// usageErr reports a usage error and returns the exit code.
+	usageErr := func(format string, a ...any) int {
+		fmt.Fprintf(stderr, format+"\n", a...)
+		fmt.Fprintf(stderr, "Run '%s -h' for help.\n", name)
+		return 1
+	}
+
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 
 	var (
@@ -66,223 +190,124 @@ func main() {
 	fs.BoolVar(&asBase64, "b", false, "encode output as base64")
 	fs.BoolVar(&asBase64, "base64", false, "encode output as base64")
 
-	if err := fs.Parse(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		fmt.Fprintf(os.Stderr, "Run '%s -h' for help.\n", os.Args[0])
-		os.Exit(1)
+	if err := fs.Parse(args); err != nil {
+		return usageErr("Error: %v", err)
 	}
 
 	if showHelp {
-		fmt.Printf("Usage: %s [flags] <width> <height> <color>\n", os.Args[0])
-		fmt.Println()
-		fmt.Println("Generates a uniform-color image and outputs it as raw bytes")
-		fmt.Println("or a base64 string to either stdout or a file.")
-		fmt.Println()
-		fmt.Println("Arguments:")
-		fmt.Println("  width   image width in pixels [1, 10000]")
-		fmt.Println("  height  image height in pixels [1, 10000]")
-		fmt.Println("  color   hex value or CSS named color (see examples below)")
-		fmt.Println()
-		fmt.Println("Color formats:")
-		fmt.Println("  ff0000        6-digit hex (RGB)")
-		fmt.Println("  ff000080      8-digit hex (RGBA)")
-		fmt.Println("  f00           3-digit hex (RGB), expanded to ff0000")
-		fmt.Println("  f008          4-digit hex (RGBA), expanded to ff000088")
-		fmt.Println("  '#ff0000'     hex with # prefix (must be quoted)")
-		fmt.Println("  red           CSS named color")
-		fmt.Println("  transparent   fully transparent black")
-		fmt.Println()
-		fmt.Println("Examples:")
-		fmt.Println("  # Create a 6x7 semi-transparent red PNG")
-		fmt.Printf("  %s -o semi-transparent-red.png 6 7 ff000088\n\n", os.Args[0])
-		fmt.Println("  # Generate a 42x42 blue JPEG using shorthand hex")
-		fmt.Printf("  %s -o blue.jpg 42 42 00f\n\n", os.Args[0])
-		fmt.Println("  # Output a 1x1 transparent WebP as base64 to stdout")
-		fmt.Printf("  %s -f webp -b 1 1 transparent\n\n", os.Args[0])
-		fmt.Println("  # Output a 1x1 transparent PNG as base64 to stdout (default format)")
-		fmt.Printf("  %s -b 1 1 transparent\n\n", os.Args[0])
-		fmt.Println("  # Redirect raw bytes to a file or pipe to another tool")
-		fmt.Printf("  %s 100 100 red > red.png\n", os.Args[0])
-		fmt.Println()
-		fmt.Println("Flags:")
-		fmt.Println("  -h, --help             show this help message")
-		fmt.Println("  -v, --version          print version and exit")
-		fmt.Println("  -f, --format string    gif, jpeg, png (default), webp")
-		fmt.Println("  -o, --output string    write output to file")
-		fmt.Println("  -b, --base64           encode output as base64")
-		fmt.Println()
-		fmt.Println("Notes:")
-		fmt.Println("  - If -f is omitted, the format is inferred from the -o file extension")
-		fmt.Println("    (.gif, .jpeg, .jpg, .png, .webp); defaults to PNG when writing to")
-		fmt.Println("    stdout; an unrecognized extension is an error.")
-		fmt.Println("  - JPEG and GIF do not support an alpha channel; the alpha")
-		fmt.Println("    component of the specified color is ignored and all pixels")
-		fmt.Println("    are fully opaque.")
-		fmt.Println("  - WebP output is lossless and supports an alpha channel.")
-		fmt.Println("  - Format names are case-insensitive; PNG and png are equivalent.")
-		fmt.Println("  - Hex digits are case-insensitive; FF0000 and ff0000 are equivalent.")
-		os.Exit(0)
+		fmt.Fprintf(stdout, helpText, name)
+		return 0
 	}
 
 	if showVersion {
-		fmt.Println(version())
-		os.Exit(0)
+		fmt.Fprintln(stdout, version())
+		return 0
 	}
 
-	args := fs.Args()
-	if len(args) != 3 {
-		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <width> <height> <color>\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Run '%s -h' for help.\n", os.Args[0])
-		os.Exit(1)
+	if fs.NArg() != 3 {
+		return usageErr("Usage: %s [flags] <width> <height> <color>", name)
 	}
 
-	width, err := strconv.Atoi(args[0])
-	if err != nil || width <= 0 || width > 10000 {
-		fmt.Fprintf(os.Stderr, "Error: width must be an integer between 1 and 10000\n")
-		fmt.Fprintf(os.Stderr, "Run '%s -h' for help.\n", os.Args[0])
-		os.Exit(1)
+	width, err := strconv.Atoi(fs.Arg(0))
+	if err != nil || width < 1 || width > maxDim {
+		return usageErr("Error: width must be an integer between 1 and %d", maxDim)
 	}
 
-	height, err := strconv.Atoi(args[1])
-	if err != nil || height <= 0 || height > 10000 {
-		fmt.Fprintf(os.Stderr, "Error: height must be an integer between 1 and 10000\n")
-		fmt.Fprintf(os.Stderr, "Run '%s -h' for help.\n", os.Args[0])
-		os.Exit(1)
+	height, err := strconv.Atoi(fs.Arg(1))
+	if err != nil || height < 1 || height > maxDim {
+		return usageErr("Error: height must be an integer between 1 and %d", maxDim)
 	}
 
-	c, err := parseColor(args[2])
+	c, err := parseColor(fs.Arg(2))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		fmt.Fprintf(os.Stderr, "Run '%s -h' for help.\n", os.Args[0])
-		os.Exit(1)
+		return usageErr("Error: %v", err)
 	}
 
 	if format == "" {
+		format = "png"
 		if outputFile != "" {
 			ext := filepath.Ext(outputFile)
-			switch strings.ToLower(ext) {
-			case ".gif":
-				format = "gif"
-			case ".jpeg", ".jpg":
-				format = "jpeg"
-			case ".png":
-				format = "png"
-			case ".webp":
-				format = "webp"
+			f, ok := extFormats[strings.ToLower(ext)]
+			switch {
+			case ok:
+				format = f
+			case ext == "":
+				return usageErr("Error: cannot infer format from %q: no file extension; use -f to specify the format or append one of %s", outputFile, extList)
 			default:
-				if ext == "" {
-					fmt.Fprintf(os.Stderr, "Error: cannot infer format from %q: no file extension; use -f to specify the format or append one of .gif, .jpeg, .jpg, .png, .webp\n", outputFile)
-				} else {
-					fmt.Fprintf(os.Stderr, "Error: cannot infer format from extension %q: use -f to specify the format or change the extension to one of .gif, .jpeg, .jpg, .png, or .webp\n", ext)
-				}
-				fmt.Fprintf(os.Stderr, "Run '%s -h' for help.\n", os.Args[0])
-				os.Exit(1)
+				return usageErr("Error: cannot infer format from extension %q: use -f to specify the format or change the extension to one of %s", ext, extListOr)
 			}
-		} else {
-			format = "png"
 		}
 	}
 
 	format = strings.ToLower(format)
-	switch format {
-	case "gif", "jpeg", "png", "webp":
-		// valid
-	default:
-		fmt.Fprintf(os.Stderr, "Error: unknown format %q: must be one of gif, jpeg, png, webp\n", format)
-		fmt.Fprintf(os.Stderr, "Run '%s -h' for help.\n", os.Args[0])
-		os.Exit(1)
+	encode, ok := encoders[format]
+	if !ok {
+		return usageErr("Error: unknown format %q: must be one of %s", format, formatList)
 	}
 
-	bounds := image.Rect(0, 0, width, height)
 	var buf bytes.Buffer
-	switch format {
-	case "jpeg", "png", "webp":
-		// Use NRGBA (non-premultiplied alpha) because parsed colors are
-		// straight-alpha values; image.RGBA expects premultiplied values.
-		img := image.NewNRGBA(bounds)
-		pix := img.Pix
-		a := c.A
-		if format == "jpeg" {
-			a = 0xFF
-		}
-		for i := 0; i < len(pix); i += 4 {
-			pix[i], pix[i+1], pix[i+2], pix[i+3] = c.R, c.G, c.B, a
-		}
-		switch format {
-		case "png":
-			// Uniform-color images compress extremely well, so the extra
-			// encoding time for maximum compression is worth the size savings.
-			enc := png.Encoder{CompressionLevel: png.BestCompression}
-			err = enc.Encode(&buf, img)
-		case "webp":
-			err = nativewebp.Encode(&buf, img, nil)
-		default:
-			err = jpeg.Encode(&buf, img, nil)
-		}
-	case "gif":
-		palette := color.Palette{color.RGBA{R: c.R, G: c.G, B: c.B, A: 0xFF}}
-		paletted := image.NewPaletted(bounds, palette)
-		err = gif.EncodeAll(&buf, &gif.GIF{
-			Image: []*image.Paletted{paletted},
-			Delay: []int{0},
-		})
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error encoding image: %v\n", err)
-		os.Exit(1)
+	if err := encode(&buf, width, height, c); err != nil {
+		fmt.Fprintf(stderr, "Error encoding image: %v\n", err)
+		return 1
 	}
 
-	var out []byte
+	out := buf.Bytes()
 	if asBase64 {
-		out = []byte(base64.StdEncoding.EncodeToString(buf.Bytes()) + "\n")
-	} else {
-		out = buf.Bytes()
+		out = base64.StdEncoding.AppendEncode(nil, out)
+		out = append(out, '\n')
 	}
 
 	if outputFile != "" {
 		if err := os.WriteFile(outputFile, out, 0o644); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
-			os.Exit(1)
+			fmt.Fprintf(stderr, "Error writing file: %v\n", err)
+			return 1
 		}
-	} else {
-		if _, err := os.Stdout.Write(out); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing output: %v\n", err)
-			os.Exit(1)
-		}
+		return 0
 	}
+	if _, err := stdout.Write(out); err != nil {
+		fmt.Fprintf(stderr, "Error writing output: %v\n", err)
+		return 1
+	}
+	return 0
 }
 
+// fill returns a width x height image filled with c. It uses NRGBA
+// (non-premultiplied alpha) because parsed colors are straight-alpha values;
+// image.RGBA expects premultiplied values.
+func fill(width, height int, c color.RGBA) *image.NRGBA {
+	img := image.NewNRGBA(image.Rect(0, 0, width, height))
+	px := [4]uint8{c.R, c.G, c.B, c.A}
+	for i := range width * height {
+		copy(img.Pix[i*4:], px[:])
+	}
+	return img
+}
+
+// parseColor parses a CSS named color (case-insensitive) or a 3, 4, 6, or
+// 8-digit hex color with an optional leading '#'.
 func parseColor(s string) (color.RGBA, error) {
-	// Try named color first (case-insensitive, no leading #).
 	if c, ok := namedColors[strings.ToLower(s)]; ok {
 		return c, nil
 	}
-	orig := s
-	s = strings.TrimPrefix(s, "#")
-	// Expand shorthand: 3 → 6, 4 → 8
-	if len(s) == 3 || len(s) == 4 {
-		b := []byte(s)
-		exp := make([]byte, len(b)*2)
-		for i, ch := range b {
-			exp[i*2] = ch
-			exp[i*2+1] = ch
+	h := strings.TrimPrefix(s, "#")
+	// Expand shorthand: 3 → 6, 4 → 8.
+	if len(h) == 3 || len(h) == 4 {
+		exp := make([]byte, 0, len(h)*2)
+		for i := range len(h) {
+			exp = append(exp, h[i], h[i])
 		}
-		s = string(exp)
+		h = string(exp)
 	}
-	switch len(s) {
-	case 6:
-		v, err := strconv.ParseUint(s, 16, 32)
-		if err != nil {
-			return color.RGBA{}, fmt.Errorf("invalid color %q", orig)
-		}
-		return color.RGBA{R: uint8(v >> 16), G: uint8(v >> 8), B: uint8(v), A: 0xff}, nil
-	case 8:
-		v, err := strconv.ParseUint(s, 16, 32)
-		if err != nil {
-			return color.RGBA{}, fmt.Errorf("invalid color %q", orig)
-		}
-		return color.RGBA{R: uint8(v >> 24), G: uint8(v >> 16), B: uint8(v >> 8), A: uint8(v)}, nil
-	default:
-		return color.RGBA{}, fmt.Errorf("invalid color %q: expected 6 or 8 hex digits", orig)
+	if len(h) != 6 && len(h) != 8 {
+		return color.RGBA{}, fmt.Errorf("invalid color %q: expected 6 or 8 hex digits", s)
 	}
+	b, err := hex.DecodeString(h)
+	if err != nil {
+		return color.RGBA{}, fmt.Errorf("invalid color %q", s)
+	}
+	c := color.RGBA{R: b[0], G: b[1], B: b[2], A: 0xFF}
+	if len(b) == 4 {
+		c.A = b[3]
+	}
+	return c, nil
 }
